@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/pred.py": {
+      "maxDuration": 30,
+      "excludeFiles": "{dev_server.py,test_web.js,test_live.js,pred_giftbox_check.py,addresses.example.txt,README.md,.gitignore}"
+    }
+  }
+}

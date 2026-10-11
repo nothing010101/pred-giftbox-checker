@@ -23,10 +23,15 @@ function makeDom() {
       window.fetch = async (url) => {
         const u = String(url);
         calls.push(u);
-        if (u.includes("/campaigns/active")) {
-          return ok({ campaigns: [{ id: "CID-TEST", name: "Double Your 1st Win" }] });
+        const abs = new URL(u, "https://tool.example.com/");
+        if (!abs.searchParams.get("wallet_address")) {
+          return ok({
+            id: "CID-TEST",
+            name: "Double Your 1st Win",
+            campaigns: [{ id: "CID-TEST", name: "Double Your 1st Win" }],
+          });
         }
-        const addr = new URL(u).searchParams.get("wallet_address");
+        const addr = abs.searchParams.get("wallet_address");
         const eligible = ELIGIBLE.has(String(addr).toLowerCase());
         return ok({
           eligible,
@@ -94,9 +99,11 @@ ELIGIBLE.add(ADDRS[2].toLowerCase());
   await waitFor(() => d.getElementById("btnStart").textContent.trim() === "Cek Semua" && d.getElementById("cDone").textContent === "5", "selesai 5 alamat");
   await sleep(120);
 
-  check("semua 5 alamat direquest", calls.filter((c) => c.includes("reward-eligibility")).length === 5, calls.length);
+  const eligCalls = () => calls.filter((c) => c.includes("wallet_address="));
+  check("semua 5 alamat direquest", eligCalls().length === 5, eligCalls().length);
   check("pakai campaign id dari /campaigns/active", calls.some((c) => c.includes("CID-TEST")), calls.slice(0, 2));
-  check("endpoint host benar", calls.every((c) => c.startsWith("https://www.pred.app/")), calls[0]);
+  check("dipanggil lewat proxy same-origin", calls.every((c) => c.startsWith("/api/pred")), calls[0]);
+  check("campaign_id diteruskan ke proxy", calls.some((c) => c.includes("campaign_id=CID-TEST")));
 
   const rows = d.querySelectorAll("#list .item");
   check("5 baris hasil tampil", rows.length === 5, rows.length);
@@ -169,8 +176,11 @@ ELIGIBLE.add(ADDRS[2].toLowerCase());
       window.localStorage.setItem("pred_giftbox_v1", raw);
       window.fetch = async (url) => {
         calls.push(String(url));
-        if (String(url).includes("/campaigns/active")) return ok({ campaigns: [{ id: "CID-TEST" }] });
-        const addr = new URL(String(url)).searchParams.get("wallet_address");
+        const abs = new URL(String(url), "https://tool.example.com/");
+        if (!abs.searchParams.get("wallet_address")) {
+          return ok({ id: "CID-TEST", campaigns: [{ id: "CID-TEST" }] });
+        }
+        const addr = abs.searchParams.get("wallet_address");
         const eligible = ELIGIBLE.has(String(addr).toLowerCase());
         return ok({ eligible, tier: eligible ? "Tier 1" : null, reward_value: eligible ? "200" : "0", reward_type: "USD" });
       };
@@ -184,10 +194,10 @@ ELIGIBLE.add(ADDRS[2].toLowerCase());
   check("hasil dipulihkan setelah refresh", d4.querySelectorAll("#list .item").length === 5, d4.querySelectorAll("#list .item").length);
   check("ringkasan dipulihkan", d4.getElementById("sHit").textContent === "2", d4.getElementById("sHit").textContent);
 
-  const before = calls.filter((c) => c.includes("reward-eligibility")).length;
+  const before = calls.filter((c) => c.includes("wallet_address=")).length;
   d4.getElementById("btnStart").click();
   await sleep(900);
-  const after = calls.filter((c) => c.includes("reward-eligibility")).length;
+  const after = calls.filter((c) => c.includes("wallet_address=")).length;
   check("skip yang sudah dicek -> tidak ada request baru", after === before, { before, after });
   check("pesan 'sudah pernah dicek'", d4.getElementById("toast").textContent.includes("sudah pernah dicek"), d4.getElementById("toast").textContent);
 
